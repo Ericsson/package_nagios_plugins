@@ -5,7 +5,7 @@ pkgname=op5-nagios-plugins
 prefix=/opt/op5
 PKGDIR=/tmp/op5
 build=$PKGDIR/src
-SANDBOX=$PKGDIR/sandbox
+SANDBOX=$PKGDIR/sandbox-nagios-plugins
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
@@ -79,39 +79,41 @@ build_nagiosplugins() {
    echo Building nagiosplugins
    cd $build
    cd nagios-plugins-$nagiosplugins_version
-   typeset perlv=`perl -V |sed -n 's/.*5 version \([0-9]*\) subversion.*/\1/p'`
-   # Params::Validate does not support perl greater than 5.10
-   typeset perlmods
-   if [ $perlv -gt 10 ] ; then
-       perlmods='--disable-perl-modules'
-   else
-      perlmods='--enable-perl-modules'
-   fi
    make clean
    case `uname -s` in
       'SunOS')
+         hasfiles=`find $prefix -type f`
+         if [ -n "$hasfiles" ] ; then
+            echo "ERROR: target dir $prefix already exists. Remove it"
+            exit 1
+         fi
          case `uname -r` in
             '5.8')
                PATH=/app/gcc/3.4.6/bin:/usr/ccs/bin:$PATH
                export PATH
-               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts $perlmods --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --with-openssl=/opt/csw --without-mysql --disable-perl-modules
+               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --disable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --with-openssl=/opt/csw --without-mysql
 
                make && make install
             ;;
             '5.9')
                PATH=/app/gcc/3.4.6/bin:/usr/ccs/bin:$PATH
                export PATH
-               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts $perlmods --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --with-openssl=/opt/csw --without-mysql
+               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --with-openssl=/opt/csw --without-mysql
 
                make && make install
             ;;
             *)
                PATH=/usr/sfw/bin:/usr/ccs/bin:$PATH
                export PATH
-               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts $perlmods --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --enable-ssl --enable-command-args --with-ssl-lib=/usr/sfw/lib --with-ssl-inc=/usr/sfw/include --with-ssl=/usr/sfw --without-mysql
+               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --enable-ssl --enable-command-args --with-ssl-lib=/usr/sfw/lib --with-ssl-inc=/usr/sfw/include --with-ssl=/usr/sfw --without-mysql
                gmake && gmake install
             ;;
          esac
+         cd $prefix
+         ln -sf nagios-plugins/libexec/ plugins
+         if [ -d nagios-plugins/perl/lib ]; then
+            ln -sf nagios-plugins/perl/lib perl
+         fi
       ;;
       'HP-UX')
          # FIXME this is completely untested
@@ -126,21 +128,34 @@ build_nagiosplugins() {
          export CPPFLAGS
          LDFLAGS="-L$prefix/lib"
          export LDFLAGS
-         ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts $perlmods --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group --without-world-permissions
+         ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group --without-world-permissions
          make && make install
          break
       ;;
       'Linux')
-         ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts $perlmods --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group --without-world-permissions
-         make && make install DESTDIR=$SANDBOX
-         rootdo make install
-         if [ '!' -x $SANDBOX/$prefix/nagios-plugins/libexec/check_nagios ] ; then
-            echo nagios-plugins did not build correctly
-            exit 1
+         DISTVER=`linux_dist`
+         if [ "${DISTVER#debian}" != "$DISTVER" ] ; then
+            ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --disable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group --without-world-permissions
+            make && make install DESTDIR=$SANDBOX
+            rootdo make install
+            if [ '!' -x $SANDBOX/$prefix/nagios-plugins/libexec/check_nagios ] ; then
+               echo nagios-plugins did not build correctly
+               exit 1
+            fi
+            cd $SANDBOX/$prefix
+            ln -sf nagios-plugins/libexec/ plugins
+         else
+            ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group --without-world-permissions
+            make && make install DESTDIR=$SANDBOX
+            rootdo make install
+            if [ '!' -x $SANDBOX/$prefix/nagios-plugins/libexec/check_nagios ] ; then
+               echo nagios-plugins did not build correctly
+               exit 1
+            fi
+            cd $SANDBOX/$prefix
+            ln -sf nagios-plugins/libexec/ plugins
+            ln -sf nagios-plugins/perl/lib perl
          fi
-         cd $SANDBOX/$prefix
-         ln -sf nagios-plugins/libexec/ plugins
-         ln -sf nagios-plugins/perl/lib perl
       ;;
       *)
          echo To be implemented
@@ -204,12 +219,12 @@ Architecture: $architecture
 Priority: optional
 Section: base
 Maintainer: Ericsson internal
-Description: This is nrpe and nagios-plugins installed in $prefix
+Description: This is nagios-plugins installed in $prefix
 EOSPEC
 
    cd $SANDBOX/..
    dpkg-deb --build $(basename $SANDBOX)
-   mv $(basename $SANDBOX).deb /var/tmp/${pkgname}-${nagiosplugins_version}-${packagerel}-${DISTVER#debian}.`uname -i`.deb
+   mv $(basename $SANDBOX).deb /var/tmp/${pkgname}-${nagiosplugins_version}-${packagerel}${DISTVER#debian}.`uname -i`.deb
 }
 
 
