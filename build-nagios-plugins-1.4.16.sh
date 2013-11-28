@@ -14,8 +14,8 @@ nrpe_user=op5nrpe          # uid=95118
 nrpe_group=nfsnobody       # gid=65534
 nrpe_group_solaris=nogroup # gid=65534
 
-nagiosplugins_version=1.5
-nagiosplugins_source="https://www.nagios-plugins.org/download/nagios-plugins-1.5.tar.gz"
+nagiosplugins_version=1.4.16
+nagiosplugins_source="http://downloads.sourceforge.net/project/nagiosplug/nagiosplug/1.4.16/nagios-plugins-1.4.16.tar.gz?r=&ts=1350919997&use_mirror=freefr"
 
 #-----------------------------------------------
 # Linux Dist
@@ -135,7 +135,7 @@ build_nagiosplugins() {
       'Linux')
          DISTVER=`linux_dist`
          if [ "${DISTVER#debian}" != "$DISTVER" ] ; then
-            ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group --without-world-permissions
+            ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --disable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group --without-world-permissions
             make && make install DESTDIR=$SANDBOX
             rootdo make install
             if [ '!' -x $SANDBOX/$prefix/nagios-plugins/libexec/check_nagios ] ; then
@@ -144,7 +144,6 @@ build_nagiosplugins() {
             fi
             cd $SANDBOX/$prefix
             ln -sf nagios-plugins/libexec/ plugins
-            ln -sf nagios-plugins/perl/lib perl
          else
             ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group --without-world-permissions
             make && make install DESTDIR=$SANDBOX
@@ -267,7 +266,7 @@ ARCH="$platform"
 CLASSES="none"
 CATEGORY="tools"
 VENDOR="EIS"
-PSTAMP="27Nov2013"
+PSTAMP="14Aug2013"
 EMAIL="anders.k.lindgren@ericsson.com"
 BASEDIR="/"
 SUNW_PKG_ALLZONES="false"
