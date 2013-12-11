@@ -198,6 +198,7 @@ rm -f $prefix/perl $prefix/plugins
 rmdir --ignore-fail-on-non-empty -p $prefix
 EOSPEC
 
+   rm -rf $SANDBOX/usr
    rpmbuild --define "_rpmdir $PKGDIR"  --buildroot=$SANDBOX -bb $SPEC
    mv ${PKGDIR}/`uname -i`/${pkgname}-${nagiosplugins_version}-${packagerel}_${DISTVER}.`uname -i`.rpm /var/tmp/ && echo wrote /var/tmp/${pkgname}-${nagiosplugins_version}-${packagerel}_${DISTVER}.`uname -i`.rpm
 

@@ -15,7 +15,9 @@ nrpe_group=nfsnobody       # gid=65534
 nrpe_group_solaris=nogroup # gid=65534
 
 nagiosplugins_version=1.4.16
-nagiosplugins_source="http://downloads.sourceforge.net/project/nagiosplug/nagiosplug/1.4.16/nagios-plugins-1.4.16.tar.gz?r=&ts=1350919997&use_mirror=freefr"
+#nagiosplugins_source="http://downloads.sourceforge.net/project/nagiosplug/nagiosplug/1.4.16/nagios-plugins-1.4.16.tar.gz?r=&ts=1350919997&use_mirror=freefr"
+nagiosplugins_source="https://www.nagios-plugins.org/download/nagios-plugins-1.4.16.tar.gz"
+
 
 #-----------------------------------------------
 # Linux Dist
@@ -66,7 +68,7 @@ get_source () {
    typeset url=`eval echo '$'${sw}_source`
    test -d $srcdir && return
    test -s $srcdir.tar.gz || rm -rf $srcdir.tar.gz
-   test -f $srcdir.tar.gz || wget -O $srcdir.tar.gz $url
+   test -f $srcdir.tar.gz || wget --no-check-certificate -O $srcdir.tar.gz $url
    gzip -dc $srcdir.tar.gz | tar xf -
 }
 
