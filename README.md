@@ -21,13 +21,24 @@ verified on:
 * Solaris 11 x86             1.5
 * Ubuntu 12.04 LTS 64bit     1.5
 
+
+Defaults
+========
+
+* pkgname=op5-nagios-plugins
+* prefix=/opt/op5
+* nrpe_user=op5nrpe
+* nrpe_group=nfsnobody
+* nrpe_group_solaris=nogroup
+
+
 Build
 =====
 
-* be root on <server>
+* be root on server
 * uninstall previous package and remove /opt/op5
-* http_proxy=<your proxy:port>
-* https_proxy=<your proxy:port>
+* http_proxy=[your proxy:port]
+* https_proxy=[your proxy:port]
 * copy the repo to /tmp/
 * cd /tmp/package_nagios_plugins/
 * ./build-nagios-plugins-(1.5 or 1.4.16).sh
