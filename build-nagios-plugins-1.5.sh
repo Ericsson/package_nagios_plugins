@@ -9,10 +9,14 @@ SANDBOX=$PKGDIR/sandbox-nagios-plugins
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
-packagerel=1
-nrpe_user=op5nrpe          # uid=95118
-nrpe_group=nfsnobody       # gid=65534
-nrpe_group_solaris=nogroup # gid=65534
+packagerel=2
+nrpe_user=op5nrpe
+nrpe_user_solaris=op5nrpe
+nrpe_uid=95118
+nrpe_group=nfsnobody
+nrpe_group_solaris=nogroup
+nrpe_gid=65534
+nrpe_home=/opt/op5/data
 
 nagiosplugins_version=1.5
 nagiosplugins_source="https://www.nagios-plugins.org/download/nagios-plugins-1.5.tar.gz"
@@ -91,21 +95,21 @@ build_nagiosplugins() {
             '5.8')
                PATH=/app/gcc/3.4.6/bin:/usr/ccs/bin:$PATH
                export PATH
-               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --disable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --with-openssl=/opt/csw --without-mysql
+               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --disable-perl-modules --with-nagios-user=$nrpe_user_solaris --with-nagios-group=$nrpe_group_solaris --without-world-permissions --with-openssl=/opt/csw --without-mysql
 
                make && make install
             ;;
             '5.9')
                PATH=/app/gcc/3.4.6/bin:/usr/ccs/bin:$PATH
                export PATH
-               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --with-openssl=/opt/csw --without-mysql
+               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user_solaris --with-nagios-group=$nrpe_group_solaris --without-world-permissions --with-openssl=/opt/csw --without-mysql
 
                make && make install
             ;;
             *)
                PATH=/usr/sfw/bin:/usr/ccs/bin:$PATH
                export PATH
-               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --without-world-permissions --enable-ssl --enable-command-args --with-ssl-lib=/usr/sfw/lib --with-ssl-inc=/usr/sfw/include --with-ssl=/usr/sfw --without-mysql
+               ./configure --prefix=$prefix/nagios-plugins --enable-extra-opts --enable-perl-modules --with-nagios-user=$nrpe_user_solaris --with-nagios-group=$nrpe_group_solaris --without-world-permissions --enable-ssl --enable-command-args --with-ssl-lib=/usr/sfw/lib --with-ssl-inc=/usr/sfw/include --with-ssl=/usr/sfw --without-mysql
                gmake && gmake install
             ;;
          esac
@@ -186,6 +190,10 @@ Group: Applications/System
 Buildroot: $SANDBOX
 AutoReqProv: no
 
+%pre
+/usr/bin/getent group $nrpe_group > /dev/null || /usr/sbin/groupadd -r -o -g $nrpe_gid $nrpe_group
+/usr/bin/getent passwd $nrpe_user > /dev/null || /usr/sbin/useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/bash $nrpe_user
+
 %description
 Nagios plugins installed in $prefix
 
@@ -212,6 +220,7 @@ EOSPEC
 
 nagiosplugins_deb () {
    typeset CTRL=$SANDBOX/DEBIAN/control
+   typeset PRE=$SANDBOX/DEBIAN/preinst
    mkdir -p $SANDBOX/DEBIAN
 
 cat << EOSPEC > $CTRL
@@ -224,6 +233,12 @@ Maintainer: Ericsson internal
 Description: This is nagios-plugins installed in $prefix
 EOSPEC
 
+cat << EOSPEC > $PRE
+getent group $nrpe_group > /dev/null || groupadd -r -o -g $nrpe_gid $nrpe_group
+getent passwd $nrpe_user > /dev/null || useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/sh $nrpe_user
+EOSPEC
+
+   chmod 755 $PRE
    cd $SANDBOX/..
    dpkg-deb --build $(basename $SANDBOX)
    mv $(basename $SANDBOX).deb /var/tmp/${pkgname}-${nagiosplugins_version}-${packagerel}${DISTVER#debian}.`uname -i`.deb
@@ -246,6 +261,7 @@ nagiosplugins_pkg () {
 cat << EOP >> ${PKGROOT}/cm.proto
 i checkinstall
 i pkginfo
+i preinstall
 EOP
 
 cat << EOT > $PKGROOT/checkinstall
@@ -275,6 +291,12 @@ SUNW_PKG_ALLZONES="false"
 SUNW_PKG_HOLLOW="false"
 SUNW_PKG_THISZONE="true"
 EOT2
+
+cat << EOT3 > ${PKGROOT}/preinstall
+#!/bin/sh
+/usr/bin/getent group $nrpe_group_solaris > /dev/null || /usr/sbin/groupadd -o -g $nrpe_gid $nrpe_group_solaris
+/usr/bin/getent passwd $nrpe_user_solaris > /dev/null || /usr/sbin/useradd -o -u $nrpe_uid -g $nrpe_gid -d $nrpe_home $nrpe_user_solaris
+EOT3
 
    cd ${PKGROOT}
    solvers=$(uname -r)
@@ -345,12 +367,31 @@ else
   cd -
 fi
 
-case `uname -s` in
-  'SunOS')
-    PATH=/usr/sbin:/usr/bin:/usr/sfw/bin:/usr/ccs/bin:/opt/csw/bin
-    export PATH
-  ;;
-esac
+if [ `uname -s` == 'SunOS' ]; then
+  if [ $? != 0 ]; then
+    getent passwd $nrpe_user_solaris > /dev/null
+    echo "User $nrpe_user_solaris does not exist"
+    exit
+  fi
+  if [ $? != 0 ]; then
+    getent group $nrpe_group_solaris > /dev/null
+    echo "Group $nrpe_group_solaris does not exist"
+    exit
+  fi
+  PATH=/usr/sbin:/usr/bin:/usr/sfw/bin:/usr/ccs/bin:/opt/csw/bin
+  export PATH
+else
+  getent passwd $nrpe_user > /dev/null
+  if [ $? != 0 ]; then
+    echo "User $nrpe_user does not exist"
+    exit
+  fi
+  getent group $nrpe_group > /dev/null
+  if [ $? != 0 ]; then
+    echo "Group $nrpe_group does not exist"
+    exit
+  fi
+fi
 
 test -d "$prefix" || mkdir -p $prefix
 test -d "$build" || mkdir -p $build
