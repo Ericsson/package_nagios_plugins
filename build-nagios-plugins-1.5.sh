@@ -192,7 +192,7 @@ AutoReqProv: no
 
 %pre
 /usr/bin/getent group $nrpe_group > /dev/null || /usr/sbin/groupadd -r -o -g $nrpe_gid $nrpe_group
-/usr/bin/getent passwd $nrpe_user > /dev/null || /usr/sbin/useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/bash $nrpe_user
+/usr/bin/getent passwd $nrpe_user > /dev/null || /usr/sbin/useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/false $nrpe_user
 
 %description
 Nagios plugins installed in $prefix
@@ -235,7 +235,7 @@ EOSPEC
 
 cat << EOSPEC > $PRE
 getent group $nrpe_group > /dev/null || groupadd -r -o -g $nrpe_gid $nrpe_group
-getent passwd $nrpe_user > /dev/null || useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/sh $nrpe_user
+getent passwd $nrpe_user > /dev/null || useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/false $nrpe_user
 EOSPEC
 
    chmod 755 $PRE
