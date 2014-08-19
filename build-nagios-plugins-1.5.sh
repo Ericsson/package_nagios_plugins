@@ -2,6 +2,7 @@
 #@(#)Build EIS Configuration Management
 
 pkgname=op5-nagios-plugins
+pkgdescription="op5 nagios plugins"
 prefix=/opt/op5
 PKGDIR=/tmp/op5
 build=$PKGDIR/src
@@ -9,7 +10,7 @@ SANDBOX=$PKGDIR/sandbox-nagios-plugins
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
-packagerel=2
+packagerel=4
 nrpe_user=op5nrpe
 nrpe_user_solaris=op5nrpe
 nrpe_uid=95118
@@ -246,10 +247,54 @@ EOSPEC
 
 
 #-----------------------------------------------
-# Build Solaris Package
+# Build Solaris IPS Package
 #-----------------------------------------------
 
-nagiosplugins_pkg () {
+nagiosplugins_ips_pkg () {
+   typeset PKGROOT=/var/tmp/${pkgname}
+   typeset PROTO=${PKGROOT}.proto
+   mkdir $PKGROOT $PROTO 2>/dev/null
+
+   rsync -aR $prefix $PROTO
+
+   # Metadata
+cat << EOP >> ${PKGROOT}/${pkgname}.mog
+set name=pkg.fmri value=${pkgname}@${nagiosplugins_version}-${packagerel}
+set name=pkg.summary value=${pkgname}
+set name=pkg.description value="${pkgdescription}"
+set name=variant.arch value=\$(ARCH)
+set name=info.classification value="org.opensolaris.category.2008:Applications/System Utilities"
+group groupname=${nrpe_group_solaris} gid=${nrpe_gid}
+user username=${nrpe_user_solaris} uid=${nrpe_uid} group=${nrpe_group_solaris} gcos-field=${nrpe_user_solaris} login-shell=/bin/false home-dir=${nrpe_home}
+depend fmri=op5-nrpe type=require
+EOP
+
+   # Generate 
+   cd $PROTO
+   gfind opt/op5 -type d -not -name .                                -printf "dir mode=%m owner=%u group=%g path=%p \n"     >> ${PKGROOT}/${pkgname}.p5m.gen
+   gfind opt/op5 -type f -not -name LICENSE -and -not -name MANIFEST -printf "file %p mode=%m owner=%u group=%g path=%p \n" >> ${PKGROOT}/${pkgname}.p5m.gen
+   gfind opt/op5 -type l -not -name LICENSE -and -not -name MANIFEST -printf "link path=%h/%f target=%l \n"                 >> ${PKGROOT}/${pkgname}.p5m.gen
+
+   # Content
+   pkgmogrify -DARCH=`uname -p` ${PKGROOT}/${pkgname}.p5m.gen ${PKGROOT}/${pkgname}.mog | pkgfmt > ${PKGROOT}/${pkgname}.p5m.mog
+   pkgdepend generate -md ${PKGROOT}.proto ${PKGROOT}/${pkgname}.p5m.mog | pkgfmt > ${PKGROOT}/${pkgname}.p5m.dep
+   pkgdepend resolve -m ${PKGROOT}/${pkgname}.p5m.dep
+
+   mv $PKGROOT/${pkgname}.p5m.dep.res /var/tmp/
+   echo "Note: if you have done any changes in the code please also do: pkglint -c /var/tmp/lint-cache -r http://pkg.oracle.com/solaris/release /var/tmp/${pkgname}.p5m.dep.res"
+   echo "Publish to local repo: pkgsend publish -s http://localhost:82 -d $PROTO /var/tmp/${pkgname}.p5m.dep.res"
+   echo "Wrote /var/tmp/${pkgname}.p5m.dep.res and Proto $PROTO"
+
+   if [ -n "$PKGROOT" ] ; then
+      rm -rf $PKGROOT
+   fi
+}
+
+#-----------------------------------------------
+# Build Solaris SVR4 Package
+#-----------------------------------------------
+
+nagiosplugins_svr4_pkg () {
    typeset PKGROOT=/var/tmp/nagios-plugins-pkgroot
 
    mkdir $PKGROOT
@@ -285,7 +330,6 @@ CLASSES="none"
 CATEGORY="tools"
 VENDOR="EIS"
 PSTAMP="27Nov2013"
-EMAIL="anders.k.lindgren@ericsson.com"
 BASEDIR="/"
 SUNW_PKG_ALLZONES="false"
 SUNW_PKG_HOLLOW="false"
@@ -324,7 +368,14 @@ make_pkg () {
    typeset what=$1
    case `uname -s` in
       'SunOS')
-         ${what}_pkg
+         case `uname -r` in
+            '5.11')
+               ${what}_ips_pkg
+            ;;
+            *)
+               ${what}_svr4_pkg
+            ;;
+         esac
       ;;
       'HP-UX')
          echo To be implemented
