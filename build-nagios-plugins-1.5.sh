@@ -10,7 +10,7 @@ SANDBOX=$PKGDIR/sandbox-nagios-plugins
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
-packagerel=4
+packagerel=5
 nrpe_user=op5nrpe
 nrpe_user_solaris=op5nrpe
 nrpe_uid=95118
